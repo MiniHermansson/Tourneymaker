@@ -3,7 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { generateOpggUrl } from "@/lib/constants";
+import {
+  generateOpggUrl,
+  LOL_SERVERS,
+  LOL_SERVER_LABELS,
+  type LolServer,
+} from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -14,11 +19,19 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
   const [gamertag, setGamertag] = useState("");
+  const [server, setServer] = useState<LolServer>("euw");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -26,10 +39,10 @@ export default function OnboardingPage() {
     e.preventDefault();
     setError("");
 
-    // Validate format: "Name #TAG"
+    // Validate format: "Name#Tag"
     const parts = gamertag.split("#");
     if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
-      setError('Please use the format "Name #TAG" (e.g., "Miniluva #EUW")');
+      setError('Please use the format "Username#Tag" (e.g., "Miniluva#EUW")');
       return;
     }
 
@@ -44,21 +57,20 @@ export default function OnboardingPage() {
       return;
     }
 
-    const region = parts[1].trim().toLowerCase();
-    const opggUrl = generateOpggUrl(gamertag);
+    const opggUrl = generateOpggUrl(gamertag.trim(), server);
 
     const { error: updateError } = await supabase
       .from("profiles")
       .update({
         lol_gamertag: gamertag.trim(),
-        lol_region: region,
+        lol_region: server,
         opgg_url: opggUrl,
         updated_at: new Date().toISOString(),
       })
       .eq("id", user.id);
 
     if (updateError) {
-      setError("Failed to save gamertag. Please try again.");
+      setError("Failed to save profile. Please try again.");
       setLoading(false);
       return;
     }
@@ -73,24 +85,43 @@ export default function OnboardingPage() {
         <CardHeader>
           <CardTitle>Set Up Your Profile</CardTitle>
           <CardDescription>
-            Enter your League of Legends gamertag to get started. This will be
-            used to look up your rank and create your op.gg link.
+            Enter your Riot ID and server to get started. This will be used to
+            look up your rank and create your op.gg link.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="gamertag">LoL Gamertag</Label>
+              <Label htmlFor="gamertag">Riot ID</Label>
               <Input
                 id="gamertag"
-                placeholder='e.g., Miniluva #EUW'
+                placeholder="e.g., Miniluva#EUW"
                 value={gamertag}
                 onChange={(e) => setGamertag(e.target.value)}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Format: Name #Region (e.g., &quot;Miniluva #EUW&quot;)
+                Format: Username#Tag (no spaces)
               </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Server</Label>
+              <Select
+                value={server}
+                onValueChange={(v) => setServer(v as LolServer)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {LOL_SERVERS.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {LOL_SERVER_LABELS[s]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
             {error && (

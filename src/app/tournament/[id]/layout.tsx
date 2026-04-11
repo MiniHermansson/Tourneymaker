@@ -55,9 +55,23 @@ export default async function TournamentLayout({
 
   if (!tournament) notFound();
 
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let isOrganizer = false;
+  if (user) {
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("is_organizer")
+      .eq("id", user.id)
+      .single();
+    isOrganizer = profile?.is_organizer ?? false;
+  }
+
   const status = tournament.status as TournamentStatus;
   const format = tournament.format as TournamentFormat;
-  const visiblePages = getVisiblePages(status, format);
+  const visiblePages = getVisiblePages(status, format, isOrganizer);
 
   return (
     <div className="container mx-auto max-w-6xl px-4 py-6">

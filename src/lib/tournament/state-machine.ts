@@ -190,7 +190,8 @@ export function getNextStatus(
 
 export function getVisiblePages(
   status: TournamentStatus,
-  format: TournamentFormat
+  format: TournamentFormat,
+  isOrganizer: boolean = false
 ): string[] {
   const pages: string[] = ["overview"];
 
@@ -207,10 +208,15 @@ export function getVisiblePages(
     "archived",
   ].indexOf(status);
 
-  if (stageIndex >= 1) pages.push("register");
-  if (stageIndex >= 2) pages.push("planning");
-  if (stageIndex >= 3 && format === "captains_draft") pages.push("scouting");
-  if (stageIndex >= 4 && format === "captains_draft") pages.push("draft");
+  // Registration: visible during registration & planning phases only
+  if (stageIndex >= 1 && stageIndex <= 2) pages.push("register");
+  // Planning: organizer-only, visible only during planning phase
+  if (stageIndex === 2 && isOrganizer) pages.push("planning");
+  // Scouting: visible only during scouting phase
+  if (stageIndex === 3 && format === "captains_draft") pages.push("scouting");
+  // Draft: visible only during captains_draft phase
+  if (stageIndex === 4 && format === "captains_draft") pages.push("draft");
+  // Persistent tabs: visible from their phase onwards
   if (stageIndex >= 5) pages.push("teams");
   if (stageIndex >= 6) pages.push("groups");
   if (stageIndex >= 7) pages.push("playoffs");

@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -45,25 +46,27 @@ export function UserNav({ profile }: { profile: Profile }) {
         </Avatar>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end">
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium leading-none">
-                {profile.discord_username}
-              </p>
-              {profile.is_organizer && (
-                <Badge variant="secondary" className="text-xs">
-                  Organizer
-                </Badge>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <div className="flex items-center gap-2">
+                <p className="text-sm font-medium leading-none">
+                  {profile.discord_username}
+                </p>
+                {profile.is_organizer && (
+                  <Badge variant="secondary" className="text-xs">
+                    Organizer
+                  </Badge>
+                )}
+              </div>
+              {profile.lol_gamertag && (
+                <p className="text-xs leading-none text-muted-foreground">
+                  {profile.lol_gamertag}
+                </p>
               )}
             </div>
-            {profile.lol_gamertag && (
-              <p className="text-xs leading-none text-muted-foreground">
-                {profile.lol_gamertag}
-              </p>
-            )}
-          </div>
-        </DropdownMenuLabel>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
         {profile.is_organizer && (
           <DropdownMenuItem onClick={() => router.push("/dashboard")}>

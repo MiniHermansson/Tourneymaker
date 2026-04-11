@@ -3,7 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { generateOpggUrl, type LolRank } from "@/lib/constants";
+import {
+  generateOpggUrl,
+  LOL_SERVERS,
+  LOL_SERVER_LABELS,
+  type LolRank,
+  type LolServer,
+} from "@/lib/constants";
 import { Button } from "@/components/ui/button";
 import { RankBadge } from "@/components/rank-badge";
 import {
@@ -15,6 +21,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ExternalLink } from "lucide-react";
 import type { Database } from "@/lib/types/database";
 
@@ -25,6 +38,7 @@ export default function ProfilePage() {
   const supabase = createClient();
   const [profile, setProfile] = useState<Profile | null>(null);
   const [gamertag, setGamertag] = useState("");
+  const [server, setServer] = useState<LolServer>("euw");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -47,6 +61,7 @@ export default function ProfilePage() {
       if (data) {
         setProfile(data);
         setGamertag(data.lol_gamertag ?? "");
+        setServer((data.lol_region as LolServer) ?? "euw");
       }
     }
     loadProfile();
@@ -58,19 +73,18 @@ export default function ProfilePage() {
 
     const parts = gamertag.split("#");
     if (parts.length !== 2 || !parts[0].trim() || !parts[1].trim()) {
-      setMessage('Please use the format "Name #TAG"');
+      setMessage('Please use the format "Username#Tag"');
       return;
     }
 
     setLoading(true);
-    const region = parts[1].trim().toLowerCase();
-    const opggUrl = generateOpggUrl(gamertag);
+    const opggUrl = generateOpggUrl(gamertag.trim(), server);
 
     const { error } = await supabase
       .from("profiles")
       .update({
         lol_gamertag: gamertag.trim(),
-        lol_region: region,
+        lol_region: server,
         opgg_url: opggUrl,
         updated_at: new Date().toISOString(),
       })
@@ -79,10 +93,30 @@ export default function ProfilePage() {
     setLoading(false);
     if (error) {
       setMessage("Failed to update. Please try again.");
-    } else {
-      setMessage("Profile updated successfully.");
-      router.refresh();
+      return;
     }
+
+    // Scrape rank after saving gamertag
+    setMessage("Profile saved. Fetching rank...");
+    try {
+      const res = await fetch("/api/scrape-rank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gamertag: gamertag.trim(),
+          userId: profile.id,
+          region: server,
+        }),
+      });
+      if (res.ok) {
+        setMessage("Profile updated and rank fetched!");
+      } else {
+        setMessage("Profile saved, but rank could not be fetched.");
+      }
+    } catch {
+      setMessage("Profile saved, but rank fetch failed.");
+    }
+    router.refresh();
   };
 
   if (!profile) {
@@ -114,20 +148,42 @@ export default function ProfilePage() {
           <CardHeader>
             <CardTitle>League of Legends</CardTitle>
             <CardDescription>
-              Your gamertag is used to fetch your rank and generate your op.gg
-              link.
+              Your Riot ID and server are used to fetch your rank and generate
+              your op.gg link.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleUpdate} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="gamertag">Gamertag</Label>
+                <Label htmlFor="gamertag">Riot ID</Label>
                 <Input
                   id="gamertag"
-                  placeholder='e.g., Miniluva #EUW'
+                  placeholder="e.g., Miniluva#EUW"
                   value={gamertag}
                   onChange={(e) => setGamertag(e.target.value)}
                 />
+                <p className="text-xs text-muted-foreground">
+                  Format: Username#Tag (no spaces)
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Server</Label>
+                <Select
+                  value={server}
+                  onValueChange={(v) => setServer(v as LolServer)}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LOL_SERVERS.map((s) => (
+                      <SelectItem key={s} value={s}>
+                        {LOL_SERVER_LABELS[s]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               {profile.current_rank && profile.current_rank !== "unranked" && (
@@ -166,9 +222,11 @@ export default function ProfilePage() {
                 <p className="text-sm text-muted-foreground">{message}</p>
               )}
 
-              <Button type="submit" disabled={loading}>
-                {loading ? "Saving..." : "Update Gamertag"}
-              </Button>
+              <div className="pt-2">
+                <Button type="submit" disabled={loading}>
+                  {loading ? "Saving..." : "Update Profile"}
+                </Button>
+              </div>
             </form>
           </CardContent>
         </Card>

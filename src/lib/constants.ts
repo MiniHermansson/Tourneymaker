@@ -111,27 +111,68 @@ export const LOL_ROLE_COLORS: Record<LolRole, { bg: string; text: string }> = {
   fill:    { bg: "bg-gray-100 dark:bg-gray-800",   text: "text-gray-600 dark:text-gray-400" },
 };
 
+export const LOL_SERVERS = [
+  "euw",
+  "eune",
+  "na",
+  "kr",
+  "jp",
+  "br",
+  "las",
+  "lan",
+  "oce",
+  "tr",
+  "ru",
+  "ph",
+  "sg",
+  "th",
+  "tw",
+  "vn",
+] as const;
+export type LolServer = (typeof LOL_SERVERS)[number];
+
+export const LOL_SERVER_LABELS: Record<LolServer, string> = {
+  euw: "EU West",
+  eune: "EU Nordic & East",
+  na: "North America",
+  kr: "Korea",
+  jp: "Japan",
+  br: "Brazil",
+  las: "Latin America South",
+  lan: "Latin America North",
+  oce: "Oceania",
+  tr: "Turkey",
+  ru: "Russia",
+  ph: "Philippines",
+  sg: "Singapore",
+  th: "Thailand",
+  tw: "Taiwan",
+  vn: "Vietnam",
+};
+
 export const DEFAULT_TEAM_BUDGET = 15;
 export const DEFAULT_PLAYER_VALUE = 3;
 export const MIN_PLAYER_VALUE = 0;
 export const MAX_PLAYER_VALUE = 7;
 
-export function generateOpggUrl(gamertag: string): string {
-  // Gamertag format: "Name #TAG" -> op.gg URL
+export function generateOpggUrl(gamertag: string, region: string): string {
+  // Gamertag format: "Name#Tag" (Riot ID), region is separate
   const [name, tag] = gamertag.split("#").map((s) => s.trim());
-  if (!name || !tag) return "";
-  const region = tag.toLowerCase();
+  if (!name || !tag || !region) return "";
   const encodedName = encodeURIComponent(name);
-  return `https://www.op.gg/summoners/${region}/${encodedName}-${tag}`;
+  return `https://www.op.gg/summoners/${region.toLowerCase()}/${encodedName}-${tag}`;
 }
 
 export function generateMultiOpggUrl(
   gamertags: string[],
   region: string
 ): string {
-  const names = gamertags
-    .map((gt) => gt.split("#")[0].trim())
+  const summoners = gamertags
+    .map((gt) => {
+      const [name, tag] = gt.split("#").map((s) => s.trim());
+      return name && tag ? `${name}#${tag}` : "";
+    })
     .filter(Boolean)
     .join(",");
-  return `https://www.op.gg/multisearch/${region.toLowerCase()}?summoners=${encodeURIComponent(names)}`;
+  return `https://www.op.gg/multisearch/${region.toLowerCase()}?summoners=${encodeURIComponent(summoners)}`;
 }

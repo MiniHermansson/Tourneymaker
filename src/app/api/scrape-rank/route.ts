@@ -13,7 +13,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { gamertag, userId } = await request.json();
+  const { gamertag, userId, region } = await request.json();
 
   // Only allow scraping own rank or if organizer
   const { data: profile } = await supabase
@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const rankData = await scrapePlayerRank(gamertag);
+  const rankData = await scrapePlayerRank(gamertag, region);
 
   if (!rankData) {
     return NextResponse.json(
