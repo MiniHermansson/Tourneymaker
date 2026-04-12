@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { cn } from "@/lib/utils";
 import {
   LOL_RANK_COLORS,
@@ -20,12 +21,18 @@ export function RankBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
-        colors.bg,
+        "inline-flex items-center gap-1 text-xs font-semibold",
         colors.text,
         className
       )}
     >
+      <Image
+        src={`/ranks/${rank}.png`}
+        alt={label}
+        width={20}
+        height={20}
+        className="shrink-0"
+      />
       {label}
       {tier && rank !== "unranked" ? ` ${tier}` : ""}
     </span>
