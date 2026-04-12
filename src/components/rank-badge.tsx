@@ -29,8 +29,8 @@ export function RankBadge({
       <Image
         src={`/ranks/${rank}.png`}
         alt={label}
-        width={20}
-        height={20}
+        width={30}
+        height={30}
         className="shrink-0"
       />
       {label}
