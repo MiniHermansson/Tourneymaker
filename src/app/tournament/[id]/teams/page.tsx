@@ -167,7 +167,6 @@ export default async function TeamsPage({ params }: TeamsPageProps) {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-primary hover:underline mt-2"
-                        onClick={(e) => e.stopPropagation()}
                       >
                         Multi-op.gg <ExternalLink className="h-3 w-3" />
                       </a>
