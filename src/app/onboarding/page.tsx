@@ -75,6 +75,21 @@ export default function OnboardingPage() {
       return;
     }
 
+    // Fetch ranks immediately after saving profile
+    try {
+      await fetch("/api/scrape-rank", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          gamertag: gamertag.trim(),
+          userId: user.id,
+          region: server,
+        }),
+      });
+    } catch {
+      // Rank fetch failure is non-blocking — user can update later from profile
+    }
+
     router.push("/");
     router.refresh();
   };
