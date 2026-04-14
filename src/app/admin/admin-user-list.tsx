@@ -12,16 +12,34 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from "@/components/ui/dialog";
 import { RankBadge } from "@/components/rank-badge";
 import { type LolRank } from "@/lib/constants";
 import type { Database } from "@/lib/types/database";
 
 type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 
-export function AdminUserList({ users }: { users: Profile[] }) {
+export function AdminUserList({
+  users,
+  currentUserId,
+}: {
+  users: Profile[];
+  currentUserId: string;
+}) {
   const router = useRouter();
   const supabase = createClient();
   const [updating, setUpdating] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState<string | null>(null);
 
   const toggleOrganizer = async (userId: string, currentValue: boolean) => {
     setUpdating(userId);
@@ -41,6 +59,19 @@ export function AdminUserList({ users }: { users: Profile[] }) {
     setUpdating(null);
   };
 
+  const deleteUser = async (userId: string) => {
+    setDeleting(userId);
+    const response = await fetch("/api/admin/delete-user", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId }),
+    });
+    if (response.ok) {
+      router.refresh();
+    }
+    setDeleting(null);
+  };
+
   return (
     <div className="rounded-md border">
       <Table>
@@ -51,6 +82,7 @@ export function AdminUserList({ users }: { users: Profile[] }) {
             <TableHead>Rank</TableHead>
             <TableHead>Joined</TableHead>
             <TableHead>Organizer</TableHead>
+            <TableHead></TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -77,6 +109,44 @@ export function AdminUserList({ users }: { users: Profile[] }) {
                   }
                   disabled={updating === user.id}
                 />
+              </TableCell>
+              <TableCell>
+                {user.id !== currentUserId && (
+                  <Dialog>
+                    <DialogTrigger
+                      render={
+                        <Button variant="destructive" size="sm" />
+                      }
+                    >
+                      Delete
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Delete user</DialogTitle>
+                        <DialogDescription>
+                          Are you sure you want to delete{" "}
+                          <strong>{user.discord_username}</strong>? This will
+                          permanently remove their account and all associated
+                          data.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <DialogFooter>
+                        <DialogClose
+                          render={<Button variant="outline" />}
+                        >
+                          Cancel
+                        </DialogClose>
+                        <Button
+                          variant="destructive"
+                          onClick={() => deleteUser(user.id)}
+                          disabled={deleting === user.id}
+                        >
+                          {deleting === user.id ? "Deleting..." : "Delete"}
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                )}
               </TableCell>
             </TableRow>
           ))}
