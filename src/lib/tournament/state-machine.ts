@@ -212,8 +212,8 @@ export function getVisiblePages(
   if (stageIndex >= 1 && stageIndex <= 2) pages.push("register");
   // Planning: organizer-only, visible only during planning phase
   if (stageIndex === 2 && isOrganizer) pages.push("planning");
-  // Scouting: visible only during scouting phase
-  if (stageIndex === 3 && format === "captains_draft") pages.push("scouting");
+  // Scouting: visible from scouting phase onwards
+  if (stageIndex >= 3 && format === "captains_draft") pages.push("scouting");
   // Draft: visible only during captains_draft phase
   if (stageIndex === 4 && format === "captains_draft") pages.push("draft");
   // Persistent tabs: visible from their phase onwards

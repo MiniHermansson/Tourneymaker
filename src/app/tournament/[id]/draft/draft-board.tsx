@@ -108,6 +108,27 @@ export function DraftBoard({
     [picks]
   );
 
+  // Compute budgets client-side from real-time picks to keep all users in sync
+  const teamBudgets = useMemo(() => {
+    const budgets = new Map<string, number>();
+    for (const team of teams) {
+      // Start from the initial budget (set at draft start, accounts for captain cost)
+      let budget = team.budget_remaining ?? 0;
+      // Subtract values of picks received in real-time that aren't already
+      // in the server-loaded team_members (to avoid double-counting on refresh)
+      const existingMemberIds = new Set(
+        team.team_members?.map((m) => m.user_id) ?? []
+      );
+      for (const pick of picks) {
+        if (pick.team_id === team.id && !existingMemberIds.has(pick.user_id)) {
+          budget -= pick.value;
+        }
+      }
+      budgets.set(team.id, budget);
+    }
+    return budgets;
+  }, [teams, picks]);
+
   const currentPick = draftState?.current_pick ?? 1;
   const currentDraftSlot = initialDraftOrder.find(
     (o) => o.pick_number === currentPick
@@ -181,7 +202,7 @@ export function DraftBoard({
     setLoading(true);
 
     const playerValue = valueMap.get(selectedPlayer) ?? 0;
-    const budget = currentTeam.budget_remaining ?? 0;
+    const budget = teamBudgets.get(currentTeam.id) ?? 0;
 
     const validation = validatePick(budget, playerValue, 1);
     if (!validation.valid) {
@@ -207,7 +228,7 @@ export function DraftBoard({
       draft_pick_order: currentPick,
     });
 
-    // Update team budget
+    // Update team budget in DB
     await supabase
       .from("teams")
       .update({ budget_remaining: budget - playerValue })
@@ -252,10 +273,11 @@ export function DraftBoard({
       .eq("user_id", lastPick.user_id);
 
     // Restore team budget
+    const currentBudget = teamBudgets.get(lastPick.team_id) ?? 0;
     await supabase
       .from("teams")
       .update({
-        budget_remaining: (team?.budget_remaining ?? 0) + lastPick.value,
+        budget_remaining: currentBudget + lastPick.value,
       })
       .eq("id", lastPick.team_id);
 
@@ -340,7 +362,7 @@ export function DraftBoard({
             <p className="text-sm text-muted-foreground">
               Budget remaining:{" "}
               <span className="font-semibold text-foreground">
-                {currentTeam.budget_remaining}
+                {teamBudgets.get(currentTeam.id) ?? 0}
               </span>
             </p>
           </CardContent>
@@ -383,7 +405,7 @@ export function DraftBoard({
                   const opggUrl = p?.opgg_url as string | null;
                   const isSelected = selectedPlayer === reg.user_id;
                   const canAfford =
-                    (currentTeam?.budget_remaining ?? 0) >= value;
+                    (teamBudgets.get(currentTeam?.id ?? "") ?? 0) >= value;
 
                   return (
                     <div
@@ -478,7 +500,7 @@ export function DraftBoard({
                         `Team ${(captain?.discord_username as string) ?? "?"}`}
                     </span>
                     <Badge variant="outline" className="text-xs">
-                      Budget: {team.budget_remaining}
+                      Budget: {teamBudgets.get(team.id) ?? 0}
                     </Badge>
                   </CardTitle>
                 </CardHeader>

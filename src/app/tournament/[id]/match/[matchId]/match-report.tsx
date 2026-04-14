@@ -277,7 +277,7 @@ export function MatchReport({
             <div className="space-y-2">
               <Label>Winner</Label>
               <Select value={reportedWinner} onValueChange={(v) => setReportedWinner(v ?? "")}>
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Select winner" />
                 </SelectTrigger>
                 <SelectContent>

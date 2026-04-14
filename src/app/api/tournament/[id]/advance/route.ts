@@ -35,6 +35,14 @@ export async function POST(
   // Use admin client for operations that bypass RLS
   const admin = createAdminClient();
 
+  // Recalculate team budgets when entering captains_draft
+  if (nextStatus === "captains_draft") {
+    const recalcResult = await recalculateTeamBudgets(admin, id);
+    if (recalcResult.error) {
+      return NextResponse.json({ error: recalcResult.error }, { status: 500 });
+    }
+  }
+
   // Auto-generate groups when entering team_setup
   if (nextStatus === "team_setup") {
     const genResult = await generateGroups(admin, id);
@@ -80,6 +88,52 @@ export async function POST(
   }
 
   return NextResponse.json({ success: true });
+}
+
+async function recalculateTeamBudgets(
+  supabase: ReturnType<typeof createAdminClient>,
+  tournamentId: string
+): Promise<{ error?: string }> {
+  const { data: tournament } = await supabase
+    .from("tournaments")
+    .select("team_budget")
+    .eq("id", tournamentId)
+    .single();
+
+  if (!tournament) {
+    return { error: "Tournament not found" };
+  }
+
+  const { data: teams } = await supabase
+    .from("teams")
+    .select("id, captain_id")
+    .eq("tournament_id", tournamentId);
+
+  if (!teams || teams.length === 0) {
+    return { error: "No teams found" };
+  }
+
+  const captainIds = teams.map((t) => t.captain_id).filter(Boolean) as string[];
+
+  const { data: captainValues } = await supabase
+    .from("draft_player_values")
+    .select("user_id, value")
+    .eq("tournament_id", tournamentId)
+    .in("user_id", captainIds);
+
+  const valueMap = new Map(
+    (captainValues ?? []).map((cv) => [cv.user_id, cv.value])
+  );
+
+  for (const team of teams) {
+    const captainValue = valueMap.get(team.captain_id!) ?? 0;
+    await supabase
+      .from("teams")
+      .update({ budget_remaining: tournament.team_budget - captainValue })
+      .eq("id", team.id);
+  }
+
+  return {};
 }
 
 async function generateGroups(

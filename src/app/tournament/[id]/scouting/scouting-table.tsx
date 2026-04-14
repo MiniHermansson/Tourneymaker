@@ -103,8 +103,8 @@ export function ScoutingTable({
           case "role":
             return a.main_role.localeCompare(b.main_role) * dir;
           case "rank": {
-            const rankA = rankOrder.indexOf(a.rank_at_registration ?? "unranked");
-            const rankB = rankOrder.indexOf(b.rank_at_registration ?? "unranked");
+            const rankA = rankOrder.indexOf((a.profiles?.current_rank as string) ?? "unranked");
+            const rankB = rankOrder.indexOf((b.profiles?.current_rank as string) ?? "unranked");
             return (rankA - rankB) * dir;
           }
           case "value": {
@@ -208,9 +208,10 @@ export function ScoutingTable({
                   className="font-medium inline-flex items-center gap-1"
                   onClick={() => toggleSort("rank")}
                 >
-                  Rank <ArrowUpDown className="h-3 w-3" />
+                  Current <ArrowUpDown className="h-3 w-3" />
                 </button>
               </th>
+              <th className="px-3 py-2 text-left font-medium">Peak</th>
               <th className="px-3 py-2 text-left">op.gg</th>
               <th className="px-3 py-2 text-left">
                 <button
@@ -256,8 +257,14 @@ export function ScoutingTable({
                   </td>
                   <td className="px-3 py-2">
                     <RankBadge
-                      rank={(reg.rank_at_registration as LolRank) ?? "unranked"}
-                      tier={reg.rank_tier_at_registration}
+                      rank={(p?.current_rank as LolRank) ?? "unranked"}
+                      tier={p?.current_rank_tier as string | null}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <RankBadge
+                      rank={(p?.peak_rank as LolRank) ?? "unranked"}
+                      tier={p?.peak_rank_tier as string | null}
                     />
                   </td>
                   <td className="px-3 py-2">

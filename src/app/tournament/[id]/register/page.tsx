@@ -75,6 +75,7 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
                   <th className="px-4 py-2 text-left font-medium">Main Role</th>
                   <th className="px-4 py-2 text-left font-medium">Secondary</th>
                   <th className="px-4 py-2 text-left font-medium">Captain</th>
+                  <th className="px-4 py-2 text-left font-medium">Sub</th>
                 </tr>
               </thead>
               <tbody>
@@ -94,6 +95,9 @@ export default async function RegisterPage({ params }: RegisterPageProps) {
                       </td>
                       <td className="px-4 py-2">
                         {reg.wants_captain ? "Yes" : "No"}
+                      </td>
+                      <td className="px-4 py-2">
+                        {reg.willing_substitute ? "Yes" : "No"}
                       </td>
                     </tr>
                   );
