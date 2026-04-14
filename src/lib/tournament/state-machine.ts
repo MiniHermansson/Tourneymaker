@@ -218,6 +218,7 @@ export function getVisiblePages(
   if (stageIndex === 4 && format === "captains_draft") pages.push("draft");
   // Persistent tabs: visible from their phase onwards
   if (stageIndex >= 5) pages.push("teams");
+  if (stageIndex >= 5 && format === "captains_draft") pages.push("substitutes");
   if (stageIndex >= 6) pages.push("groups");
   if (stageIndex >= 7) pages.push("playoffs");
   if (stageIndex >= 8) pages.push("results");

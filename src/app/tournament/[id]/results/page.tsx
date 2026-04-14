@@ -34,19 +34,14 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
     );
   }
 
-  // Fetch placement teams
-  const teamIds = [
-    results.first_place_id,
-    results.second_place_id,
-    results.third_place_id,
-  ].filter(Boolean) as string[];
-
-  const { data: teams } = await supabase
+  // Fetch all tournament teams
+  const { data: allTeams } = await supabase
     .from("teams")
     .select("*, team_members(*, profiles(*))")
-    .in("id", teamIds);
+    .eq("tournament_id", id)
+    .order("created_at");
 
-  const teamMap = new Map(teams?.map((t) => [t.id, t]) ?? []);
+  const teamMap = new Map(allTeams?.map((t) => [t.id, t]) ?? []);
 
   const firstPlace = results.first_place_id
     ? teamMap.get(results.first_place_id)
@@ -57,6 +52,12 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
   const thirdPlace = results.third_place_id
     ? teamMap.get(results.third_place_id)
     : null;
+
+  // All teams not on the podium
+  const podiumIds = new Set(
+    [results.first_place_id, results.second_place_id, results.third_place_id].filter(Boolean)
+  );
+  const remainingTeams = (allTeams ?? []).filter((t) => !podiumIds.has(t.id));
 
   return (
     <div className="space-y-8">
@@ -176,10 +177,20 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
         </div>
       </div>
 
-      {/* Team Rosters */}
-      {[firstPlace, secondPlace, thirdPlace]
-        .filter(Boolean)
-        .map((team, i) => {
+      {/* All Participating Teams */}
+      {(() => {
+        const podiumTeams = [
+          { team: firstPlace, label: "1st Place" },
+          { team: secondPlace, label: "2nd Place" },
+          { team: thirdPlace, label: "3rd Place" },
+        ].filter((e) => e.team);
+
+        const otherTeams = remainingTeams.map((t) => ({
+          team: t,
+          label: null,
+        }));
+
+        return [...podiumTeams, ...otherTeams].map(({ team, label }) => {
           if (!team) return null;
           const members = (team.team_members ?? []) as Array<{
             user_id: string;
@@ -189,7 +200,8 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
             <Card key={team.id}>
               <CardHeader>
                 <CardTitle className="text-base">
-                  {["1st", "2nd", "3rd"][i]} Place — {team.name ?? "Unnamed"}
+                  {label ? `${label} — ` : ""}
+                  {team.name ?? "Unnamed"}
                 </CardTitle>
               </CardHeader>
               <CardContent>
@@ -203,7 +215,8 @@ export default async function ResultsPage({ params }: ResultsPageProps) {
               </CardContent>
             </Card>
           );
-        })}
+        });
+      })()}
 
       {results.notes && (
         <Card>
