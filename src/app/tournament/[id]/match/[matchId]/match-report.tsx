@@ -54,24 +54,40 @@ export function MatchReport({
   const supabase = createClient();
   const [loading, setLoading] = useState(false);
   const [reportedWinner, setReportedWinner] = useState<string>("");
+  const [scoreA, setScoreA] = useState<string>("");
+  const [scoreB, setScoreB] = useState<string>("");
   const [screenshotUrls, setScreenshotUrls] = useState<string[]>([""]);
   const [message, setMessage] = useState("");
 
   const canReport = (isCaptainA || isCaptainB) && !match.is_completed;
   const maxGames = match.bo_format === "bo5" ? 5 : match.bo_format === "bo3" ? 3 : 1;
+  const isBestOf = maxGames > 1;
+  const winsNeeded = Math.ceil(maxGames / 2);
 
   const handleReportWinner = async () => {
     if (!reportedWinner) return;
+    if (isBestOf && (!scoreA || !scoreB)) return;
     setLoading(true);
     setMessage("");
 
-    const updateField = isCaptainA
-      ? "team_a_reported_winner"
-      : "team_b_reported_winner";
+    const reportedScoreA = isBestOf ? Number(scoreA) : (reportedWinner === match.team_a_id ? 1 : 0);
+    const reportedScoreB = isBestOf ? Number(scoreB) : (reportedWinner === match.team_b_id ? 1 : 0);
+
+    const updateData = isCaptainA
+      ? {
+          team_a_reported_winner: reportedWinner,
+          team_a_reported_score_a: reportedScoreA,
+          team_a_reported_score_b: reportedScoreB,
+        }
+      : {
+          team_b_reported_winner: reportedWinner,
+          team_b_reported_score_a: reportedScoreA,
+          team_b_reported_score_b: reportedScoreB,
+        };
 
     const { error } = await supabase
       .from("matches")
-      .update({ [updateField]: reportedWinner })
+      .update(updateData)
       .eq("id", match.id);
 
     if (error) {
@@ -80,10 +96,10 @@ export function MatchReport({
       return;
     }
 
-    // Check if both teams reported the same winner
+    // Check if both teams have reported
     const { data: updated } = await supabase
       .from("matches")
-      .select("team_a_reported_winner, team_b_reported_winner")
+      .select("team_a_reported_winner, team_b_reported_winner, team_a_reported_score_a, team_a_reported_score_b, team_b_reported_score_a, team_b_reported_score_b")
       .eq("id", match.id)
       .single();
 
@@ -91,26 +107,19 @@ export function MatchReport({
       updated?.team_a_reported_winner &&
       updated?.team_b_reported_winner
     ) {
-      if (
-        updated.team_a_reported_winner === updated.team_b_reported_winner
-      ) {
-        // Both agree - auto-confirm
-        const winnerId = updated.team_a_reported_winner;
-        const scoreA =
-          winnerId === match.team_a_id
-            ? Math.ceil(maxGames / 2)
-            : Math.floor(maxGames / 2) - (maxGames > 1 ? 1 : 0);
-        const scoreB =
-          winnerId === match.team_b_id
-            ? Math.ceil(maxGames / 2)
-            : Math.floor(maxGames / 2) - (maxGames > 1 ? 1 : 0);
+      const winnersMatch = updated.team_a_reported_winner === updated.team_b_reported_winner;
+      const scoresMatch =
+        updated.team_a_reported_score_a === updated.team_b_reported_score_a &&
+        updated.team_a_reported_score_b === updated.team_b_reported_score_b;
 
+      if (winnersMatch && scoresMatch) {
+        // Both agree on winner and score - auto-confirm
         await supabase
           .from("matches")
           .update({
-            winner_id: winnerId,
-            team_a_score: winnerId === match.team_a_id ? Math.ceil(maxGames / 2) : scoreA,
-            team_b_score: winnerId === match.team_b_id ? Math.ceil(maxGames / 2) : scoreB,
+            winner_id: updated.team_a_reported_winner,
+            team_a_score: updated.team_a_reported_score_a!,
+            team_b_score: updated.team_a_reported_score_b!,
             is_completed: true,
             completed_at: new Date().toISOString(),
           })
@@ -123,7 +132,7 @@ export function MatchReport({
           body: JSON.stringify({ matchId: match.id }),
         });
 
-        setMessage("Match confirmed! Both captains reported the same winner.");
+        setMessage("Match confirmed! Both captains reported the same result.");
       } else {
         // Disputed
         await supabase
@@ -131,23 +140,32 @@ export function MatchReport({
           .update({ is_disputed: true })
           .eq("id", match.id);
         setMessage(
-          "Dispute! Both captains reported different winners. An organizer will resolve this."
+          "Dispute! Captains reported different results. An organizer will resolve this."
         );
       }
     } else {
-      setMessage("Winner reported. Waiting for the other captain to confirm.");
+      setMessage("Result reported. Waiting for the other captain to confirm.");
     }
 
     // Save screenshots if provided
     const validUrls = screenshotUrls.filter((u) => u.trim());
-    if (validUrls.length > 0 && isCaptainA) {
-      // Check if game 1 exists
-      const existingGame = games.find((g) => g.game_number === 1);
-      if (existingGame) {
+    if (validUrls.length > 0) {
+      // Re-fetch game 1 to catch rows created by the other captain since page load
+      const { data: currentGame } = await supabase
+        .from("match_games")
+        .select("id, screenshot_urls")
+        .eq("match_id", match.id)
+        .eq("game_number", 1)
+        .single();
+
+      if (currentGame) {
+        // Merge with any existing screenshots from the other captain
+        const existing = (currentGame.screenshot_urls ?? []) as string[];
+        const merged = [...existing, ...validUrls];
         await supabase
           .from("match_games")
-          .update({ screenshot_urls: validUrls })
-          .eq("id", existingGame.id);
+          .update({ screenshot_urls: merged })
+          .eq("id", currentGame.id);
       } else {
         await supabase.from("match_games").insert({
           match_id: match.id,
@@ -295,6 +313,49 @@ export function MatchReport({
               </Select>
             </div>
 
+            {isBestOf && reportedWinner && (
+              <div className="space-y-2">
+                <Label>Score</Label>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">
+                      {teamA?.name ?? "Team A"}
+                    </Label>
+                    <Select value={scoreA} onValueChange={(v) => setScoreA(v ?? "")}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Wins" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: winsNeeded + 1 }, (_, i) => (
+                          <SelectItem key={i} value={String(i)}>
+                            {i}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <span className="text-muted-foreground mt-5">-</span>
+                  <div className="flex-1">
+                    <Label className="text-xs text-muted-foreground">
+                      {teamB?.name ?? "Team B"}
+                    </Label>
+                    <Select value={scoreB} onValueChange={(v) => setScoreB(v ?? "")}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Wins" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from({ length: winsNeeded + 1 }, (_, i) => (
+                          <SelectItem key={i} value={String(i)}>
+                            {i}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
               <Label>Screenshot URLs (max 5)</Label>
               {screenshotUrls.map((url, i) => (
@@ -329,7 +390,7 @@ export function MatchReport({
 
             <Button
               onClick={handleReportWinner}
-              disabled={loading || !reportedWinner}
+              disabled={loading || !reportedWinner || (isBestOf && (!scoreA || !scoreB))}
             >
               {loading ? "Reporting..." : "Submit Report"}
             </Button>
@@ -377,15 +438,23 @@ export function MatchReport({
           </CardHeader>
           <CardContent className="text-sm space-y-1">
             <p>
-              Team A ({teamA?.name ?? "TBD"}):{" "}
+              {teamA?.name ?? "Team A"}:{" "}
               {match.team_a_reported_winner
-                ? `Reported ${match.team_a_reported_winner === teamA?.id ? teamA?.name : teamB?.name}`
+                ? `Reported ${match.team_a_reported_winner === teamA?.id ? teamA?.name : teamB?.name}${
+                    match.team_a_reported_score_a != null
+                      ? ` (${match.team_a_reported_score_a}-${match.team_a_reported_score_b})`
+                      : ""
+                  }`
                 : "Not yet reported"}
             </p>
             <p>
-              Team B ({teamB?.name ?? "TBD"}):{" "}
+              {teamB?.name ?? "Team B"}:{" "}
               {match.team_b_reported_winner
-                ? `Reported ${match.team_b_reported_winner === teamA?.id ? teamA?.name : teamB?.name}`
+                ? `Reported ${match.team_b_reported_winner === teamA?.id ? teamA?.name : teamB?.name}${
+                    match.team_b_reported_score_a != null
+                      ? ` (${match.team_b_reported_score_a}-${match.team_b_reported_score_b})`
+                      : ""
+                  }`
                 : "Not yet reported"}
             </p>
           </CardContent>

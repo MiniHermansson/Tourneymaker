@@ -420,6 +420,10 @@ export type Database = {
           is_completed: boolean;
           team_a_reported_winner: string | null;
           team_b_reported_winner: string | null;
+          team_a_reported_score_a: number | null;
+          team_a_reported_score_b: number | null;
+          team_b_reported_score_a: number | null;
+          team_b_reported_score_b: number | null;
           is_disputed: boolean;
           is_losers_bracket: boolean;
           scheduled_at: string | null;
@@ -442,6 +446,10 @@ export type Database = {
           is_completed?: boolean;
           team_a_reported_winner?: string | null;
           team_b_reported_winner?: string | null;
+          team_a_reported_score_a?: number | null;
+          team_a_reported_score_b?: number | null;
+          team_b_reported_score_a?: number | null;
+          team_b_reported_score_b?: number | null;
           is_disputed?: boolean;
           is_losers_bracket?: boolean;
           scheduled_at?: string | null;
@@ -464,6 +472,10 @@ export type Database = {
           is_completed?: boolean;
           team_a_reported_winner?: string | null;
           team_b_reported_winner?: string | null;
+          team_a_reported_score_a?: number | null;
+          team_a_reported_score_b?: number | null;
+          team_b_reported_score_a?: number | null;
+          team_b_reported_score_b?: number | null;
           is_disputed?: boolean;
           is_losers_bracket?: boolean;
           scheduled_at?: string | null;
